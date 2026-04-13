@@ -1,0 +1,76 @@
+{
+  "name": "audiolink",
+  "productName": "AudioLink",
+  "version": "0.6.0",
+  "description": "Low-latency audio streaming over your local network",
+  "main": "out/main/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "clean": "node -e \"const fs=require('fs');if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true,force:true});console.log('dist cleaned')\"",
+    "kill-app": "node -e \"require('child_process').execSync('taskkill /F /IM AudioLink.exe 2>nul || exit 0', {shell:'cmd.exe'})\"",
+    "make": "npm run kill-app && npm run clean && node scripts/build-icon.mjs && electron-vite build && node scripts/build-with-retry.mjs --publish never",
+    "publish-update": "npm run kill-app && npm run clean && node scripts/build-icon.mjs && electron-vite build && node scripts/build-with-retry.mjs --publish always",
+    "serve-updates": "node scripts/serve-updates.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.audiolink.app",
+    "productName": "AudioLink",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/main/**/*",
+      "out/preload/**/*",
+      "out/renderer/**/*",
+      "build/icon.ico",
+      "build/icon.png"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "electronLanguages": [
+      "en-US"
+    ],
+    "electronFuses": {
+      "enableEmbeddedAsarIntegrityValidation": false
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "http://localhost:8766"
+    }
+  },
+  "keywords": [],
+  "author": {
+    "name": "AzureAD\\NelushaUdaraka",
+    "email": "nelusha.u@eyepax.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@electron/fuses": "^1.8.0",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/ws": "^8.18.1",
+    "electron": "41.2.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
+    "png2icons": "^2.0.1",
+    "typescript": "^6.0.2",
+    "vite": "^5.4.21"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3",
+    "ws": "^8.20.0"
+  }
+}
