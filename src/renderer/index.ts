@@ -4,7 +4,7 @@ import './styles/views.css';
 import iconUrl from '../../build/icon.png';
 import { api, $, showView, showToast } from './utils';
 import { initServer, getIsServerRunning, setServerStateCallback } from './server';
-import { getIsClientConnected, setClientStateCallback, startDiscoverySession } from './client';
+import { getIsClientConnected, setClientStateCallback, startDiscoverySession, applyClientTab } from './client';
 
 // ─── Titlebar icon ────────────────────────────────────────────────────────────
 ($('titlebar-icon') as HTMLImageElement).src = iconUrl;
@@ -32,6 +32,12 @@ api.getSettings().then((settings) => {
   if (settings.theme) applyTheme(settings.theme);
   // Default to true when the key has never been saved
   $<HTMLInputElement>('minimize-to-tray-toggle').checked = settings.minimizeToTray !== false;
+
+  if (settings.windowOpacity !== undefined) {
+    const pct = Math.round(settings.windowOpacity * 100);
+    $<HTMLInputElement>('opacity-slider').value = String(pct);
+    $<HTMLSpanElement>('opacity-value').textContent = `${pct}%`;
+  }
 });
 
 async function setTheme(theme: Theme): Promise<void> {
@@ -46,6 +52,18 @@ $('btn-theme').addEventListener('click', () => {
 
 $('theme-dark-btn').addEventListener('click', () => setTheme('dark'));
 $('theme-light-btn').addEventListener('click', () => setTheme('light'));
+
+// ─── Window opacity ───────────────────────────────────────────────────────────
+$<HTMLInputElement>('opacity-slider').addEventListener('input', () => {
+  const pct = parseInt($<HTMLInputElement>('opacity-slider').value, 10);
+  $<HTMLSpanElement>('opacity-value').textContent = `${pct}%`;
+  api.setWindowOpacity(pct / 100);
+});
+
+$<HTMLInputElement>('opacity-slider').addEventListener('change', () => {
+  const pct = parseInt($<HTMLInputElement>('opacity-slider').value, 10);
+  api.saveSettings({ windowOpacity: pct / 100 });
+});
 
 // ─── Minimize-to-tray toggle ──────────────────────────────────────────────────
 $<HTMLInputElement>('minimize-to-tray-toggle').addEventListener('change', async (e) => {
@@ -113,7 +131,9 @@ $('btn-client-mode').addEventListener('click', async () => {
       $<HTMLInputElement>('server-ip-input').value = settings.lastIp;
       $<HTMLInputElement>('server-port-input').value = String(settings.lastPort || 8765);
     }
-    startDiscoverySession();
+    const tab = settings.clientTab ?? 'auto';
+    applyClientTab(tab);
+    if (tab === 'auto') startDiscoverySession();
   }
 });
 

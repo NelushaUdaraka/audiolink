@@ -22,6 +22,9 @@ export function registerWindowIpc(): void {
   ipcMain.handle('save-settings', (_e, partial: Partial<AppSettings>) => saveSettings(partial));
 
   ipcMain.handle('set-minimize-to-tray', (_e, enabled: boolean) => setMinimizeToTray(enabled));
+  ipcMain.handle('set-window-opacity', (_e, opacity: number) => {
+    mainWindow?.setOpacity(Math.max(0.2, Math.min(1, opacity)));
+  });
 
   ipcMain.handle('window-minimize', () => mainWindow?.minimize());
   ipcMain.handle('window-maximize', () => {

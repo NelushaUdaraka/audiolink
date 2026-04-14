@@ -40,9 +40,9 @@ export function setMinimizeToTray(enabled: boolean): void {
 export function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 480,
-    minWidth: 360,
-    minHeight: 450,
+    height: 620,
+    minWidth: 400,
+    minHeight: 620,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a14',
@@ -56,6 +56,11 @@ export function createWindow(): void {
 
   mainWindow.setResizable(true);
   mainWindow.center();
+
+  const savedSettings = loadSettings();
+  if (savedSettings.windowOpacity !== undefined) {
+    mainWindow.setOpacity(Math.max(0.2, Math.min(1, savedSettings.windowOpacity)));
+  }
 
   // Intercept close: hide to tray unless a real quit is in progress or the
   // user has disabled the "close to tray" setting.

@@ -7,6 +7,7 @@ import { mainWindow } from '../window';
 let discoverySocket: import('dgram').Socket | null = null;
 let broadcastInterval: ReturnType<typeof setInterval> | null = null;
 const DISCOVERY_PORT = 41234;
+const MULTICAST_ADDR = '239.255.255.250';
 
 function getLocalIP(): string {
   const interfaces = os.networkInterfaces();
@@ -24,24 +25,31 @@ export function startUdpBroadcast(signalingPort: number): void {
   stopUdpBroadcast();
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const dgram = require('dgram');
-  const server = dgram.createSocket('udp4');
+  const server = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+  discoverySocket = server;
   server.bind(() => {
-    server.setBroadcast(true);
+    // If stop was called before bind completed, this socket is already closed
+    if (discoverySocket !== server) return;
     broadcastInterval = setInterval(() => {
+      if (discoverySocket !== server) return;
       const msg = JSON.stringify({
         name: `${os.hostname()} - AudioLink`,
         ip: getLocalIP(),
         port: signalingPort,
       });
-      server.send(msg, 0, msg.length, DISCOVERY_PORT, '255.255.255.255');
+      try {
+        server.send(msg, 0, msg.length, DISCOVERY_PORT, MULTICAST_ADDR);
+      } catch { /* socket closed between check and send */ }
     }, 2000);
   });
-  discoverySocket = server;
 }
 
 export function stopUdpBroadcast(): void {
   if (broadcastInterval) { clearInterval(broadcastInterval); broadcastInterval = null; }
-  if (discoverySocket) { discoverySocket.close(); discoverySocket = null; }
+  if (discoverySocket) { 
+    try { discoverySocket.close(); } catch (e) {}
+    discoverySocket = null; 
+  }
 }
 
 export function registerDiscoveryIpc(): void {
@@ -49,7 +57,7 @@ export function registerDiscoveryIpc(): void {
     if (discoverySocket) return;
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const dgram = require('dgram');
-    discoverySocket = dgram.createSocket('udp4');
+    discoverySocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
     discoverySocket?.on('message', (msg: Buffer) => {
       try {
         const data = JSON.parse(msg.toString());
@@ -59,11 +67,20 @@ export function registerDiscoveryIpc(): void {
       } catch { /* ignore malformed packets */ }
     });
     discoverySocket?.bind(DISCOVERY_PORT, () => {
-      console.log('Listening for discovered servers on port', DISCOVERY_PORT);
+      try {
+        discoverySocket?.addMembership(MULTICAST_ADDR);
+        console.log('Desktop listening for Multicast on', MULTICAST_ADDR, 'port', DISCOVERY_PORT);
+      } catch (err) {
+        console.error('Multicast addMembership error on desktop:', err);
+      }
     });
   });
 
   ipcMain.handle('stop-discovery', () => {
-    if (discoverySocket) { discoverySocket.close(); discoverySocket = null; }
+    if (discoverySocket) {
+      try { discoverySocket.dropMembership(MULTICAST_ADDR); } catch { /* not a member */ }
+      try { discoverySocket.close(); } catch { /* already closed */ }
+      discoverySocket = null;
+    }
   });
 }

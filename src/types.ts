@@ -19,7 +19,26 @@ export interface SignalingIceCandidate {
   candidate: RTCIceCandidateInit;
 }
 
-export type SignalingMessage = SignalingOffer | SignalingAnswer | SignalingIceCandidate;
+export interface SignalingAuthChallenge {
+  type: 'auth-challenge';
+}
+
+export interface SignalingAuthResponse {
+  type: 'auth-response';
+  pin: string;
+}
+
+export interface SignalingAuthError {
+  type: 'auth-error';
+}
+
+export type SignalingMessage =
+  | SignalingOffer
+  | SignalingAnswer
+  | SignalingIceCandidate
+  | SignalingAuthChallenge
+  | SignalingAuthResponse
+  | SignalingAuthError;
 
 // ─── IPC response types ──────────────────────────────────────────────────
 
@@ -49,6 +68,13 @@ export interface AppSettings {
   updateServerUrl?: string;
   theme?: 'dark' | 'light';
   minimizeToTray?: boolean;
+  serverPin?: string;
+  volume?: number;          // client volume 0–300
+  outputDeviceId?: string;  // client audio output device ID
+  inputDeviceId?: string;   // server audio input device ID
+  bitrate?: number;         // server bitrate in bps
+  windowOpacity?: number;   // window opacity 0.2–1.0
+  clientTab?: 'auto' | 'manual';  // last active client connection tab
 }
 
 export interface ElectronAPI {
@@ -61,7 +87,7 @@ export interface ElectronAPI {
   getLocalIP: () => Promise<string>;
 
   // Signaling server (server mode)
-  startSignalingServer: (port?: number) => Promise<SignalingServerResult>;
+  startSignalingServer: (port?: number, pin?: string) => Promise<SignalingServerResult>;
   stopSignalingServer: () => Promise<StopServerResult>;
 
   // Auto-Discovery Client
@@ -84,6 +110,7 @@ export interface ElectronAPI {
 
   // Tray
   setMinimizeToTray: (enabled: boolean) => Promise<void>;
+  setWindowOpacity: (opacity: number) => Promise<void>;
 
   // Auto-updates
   onUpdateChecking: (callback: () => void) => void;

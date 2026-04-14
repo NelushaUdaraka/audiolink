@@ -12,6 +12,7 @@ let serverStateCallback: (() => void) | null = null;
 // ─── Device enumeration ───────────────────────────────────────────────────────
 export async function refreshDevices(): Promise<void> {
   const select = $<HTMLSelectElement>('audio-device-select');
+  const previousValue = select.value;
   select.innerHTML = '';
 
   const systemOpt = document.createElement('option');
@@ -34,6 +35,9 @@ export async function refreshDevices(): Promise<void> {
         opt.textContent = device.label || `Microphone ${i + 1}`;
         select.appendChild(opt);
       });
+
+    if (previousValue && [...select.options].some((o) => o.value === previousValue))
+      select.value = previousValue;
   } catch (err) {
     console.error('Error enumerating devices:', err);
   }
@@ -166,6 +170,26 @@ export async function initServer(): Promise<void> {
   const ip = await api.getLocalIP();
   $('server-ip').textContent = ip;
   await refreshDevices();
+
+  const settings = await api.getSettings();
+  if (settings.serverPin) $<HTMLInputElement>('server-pin-input').value = settings.serverPin;
+
+  if (settings.inputDeviceId) {
+    const select = $<HTMLSelectElement>('audio-device-select');
+    if ([...select.options].some((o) => o.value === settings.inputDeviceId))
+      select.value = settings.inputDeviceId;
+  }
+
+  if (settings.bitrate !== undefined) {
+    const bitrateSelect = $<HTMLSelectElement>('audio-bitrate-select');
+    if ([...bitrateSelect.options].some((o) => parseInt(o.value, 10) === settings.bitrate))
+      bitrateSelect.value = String(settings.bitrate);
+  }
+}
+
+function setPinControlsEnabled(enabled: boolean): void {
+  $<HTMLInputElement>('server-pin-input').disabled = !enabled;
+  $<HTMLButtonElement>('btn-generate-pin').disabled = !enabled;
 }
 
 export async function startServer(): Promise<void> {
@@ -176,11 +200,13 @@ export async function startServer(): Promise<void> {
     serverStream = await captureAudio(deviceId);
     setupLevelMeter(serverStream);
 
-    const result = await api.startSignalingServer(8765);
+    const pin = $<HTMLInputElement>('server-pin-input').value.trim() || undefined;
+    const result = await api.startSignalingServer(8765, pin);
     if (!result.success) throw new Error(result.error || 'Failed to start signaling server');
 
     isServerRunning = true;
     serverStateCallback?.();
+    setPinControlsEnabled(false);
     $<HTMLButtonElement>('btn-start-server').style.display = 'none';
     $<HTMLButtonElement>('btn-stop-server').style.display = 'flex';
     setStatus('server-status-badge', 'waiting', 'Waiting for client...');
@@ -223,6 +249,7 @@ export async function stopServer(): Promise<void> {
 
   await api.stopSignalingServer();
 
+  setPinControlsEnabled(true);
   $<HTMLButtonElement>('btn-start-server').style.display = 'flex';
   $<HTMLButtonElement>('btn-stop-server').style.display = 'none';
   $<HTMLDivElement>('server-level-bar').style.width = '0%';
@@ -230,14 +257,30 @@ export async function stopServer(): Promise<void> {
 }
 
 // ─── Event listeners (registered once at module load) ─────────────────────────
+$<HTMLInputElement>('server-pin-input').addEventListener('change', async () => {
+  const pin = $<HTMLInputElement>('server-pin-input').value.replace(/\D/g, '').slice(0, 6);
+  $<HTMLInputElement>('server-pin-input').value = pin;
+  await api.saveSettings({ serverPin: pin });
+});
+
+$('btn-generate-pin').addEventListener('click', async () => {
+  const pin = String(Math.floor(100000 + Math.random() * 900000)).slice(0, 6);
+  const input = $<HTMLInputElement>('server-pin-input');
+  input.value = pin;
+  await api.saveSettings({ serverPin: pin });
+});
+
 $('btn-refresh-devices').addEventListener('click', refreshDevices);
 $('btn-start-server').addEventListener('click', startServer);
 $('btn-stop-server').addEventListener('click', stopServer);
 
 $<HTMLSelectElement>('audio-device-select').addEventListener('change', async (e) => {
-  if (!isServerRunning) return;
   const deviceId = (e.target as HTMLSelectElement).value;
   if (!deviceId) return;
+
+  await api.saveSettings({ inputDeviceId: deviceId });
+
+  if (!isServerRunning) return;
   try {
     const newStream = await captureAudio(deviceId);
     serverStream?.getTracks().forEach((t) => t.stop());
@@ -256,8 +299,10 @@ $<HTMLSelectElement>('audio-device-select').addEventListener('change', async (e)
 });
 
 $<HTMLSelectElement>('audio-bitrate-select').addEventListener('change', async (e) => {
-  if (!isServerRunning || !serverPeerConnection) return;
   const maxBitrate = parseInt((e.target as HTMLSelectElement).value, 10);
+  await api.saveSettings({ bitrate: maxBitrate });
+
+  if (!isServerRunning || !serverPeerConnection) return;
   try {
     const sender = serverPeerConnection.getSenders().find((s) => s.track?.kind === 'audio');
     if (sender) {

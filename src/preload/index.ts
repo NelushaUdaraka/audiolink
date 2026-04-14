@@ -11,8 +11,8 @@ const electronAPI: ElectronAPI = {
   getLocalIP: (): Promise<string> => ipcRenderer.invoke('get-local-ip'),
 
   // Signaling server (server mode)
-  startSignalingServer: (port?: number): Promise<SignalingServerResult> =>
-    ipcRenderer.invoke('start-signaling-server', port),
+  startSignalingServer: (port?: number, pin?: string): Promise<SignalingServerResult> =>
+    ipcRenderer.invoke('start-signaling-server', port, pin),
   stopSignalingServer: (): Promise<StopServerResult> =>
     ipcRenderer.invoke('stop-signaling-server'),
 
@@ -50,6 +50,7 @@ const electronAPI: ElectronAPI = {
 
   // Tray
   setMinimizeToTray: (enabled: boolean): Promise<void> => ipcRenderer.invoke('set-minimize-to-tray', enabled),
+  setWindowOpacity: (opacity: number): Promise<void> => ipcRenderer.invoke('set-window-opacity', opacity),
 
   // Auto-updates
   onUpdateChecking: (callback: () => void): void => {

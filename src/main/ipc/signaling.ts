@@ -6,6 +6,7 @@ import type { SignalingMessage, SignalingServerResult, StopServerResult } from '
 
 let wss: WebSocketServer | null = null;
 let clientSocket: WebSocket | null = null;
+let activePin = '';
 
 export function getWss(): WebSocketServer | null {
   return wss;
@@ -14,9 +15,10 @@ export function getWss(): WebSocketServer | null {
 export function registerSignalingIpc(): void {
   ipcMain.handle(
     'start-signaling-server',
-    (_e, port?: number): Promise<SignalingServerResult> =>
+    (_e, port?: number, pin?: string): Promise<SignalingServerResult> =>
       new Promise((resolve, reject) => {
         try {
+          activePin = pin ?? '';
           if (wss) { wss.close(); wss = null; clientSocket = null; }
 
           const signalingPort = port || 8765;
@@ -31,11 +33,33 @@ export function registerSignalingIpc(): void {
           wss.on('connection', (ws: WebSocket) => {
             console.log('Client connected to signaling server');
             clientSocket = ws;
-            mainWindow?.webContents.send('client-connected');
+
+            let authed = activePin === '';
+
+            if (!authed) {
+              ws.send(JSON.stringify({ type: 'auth-challenge' }));
+            } else {
+              mainWindow?.webContents.send('client-connected');
+            }
 
             ws.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
               try {
                 const msg: SignalingMessage = JSON.parse(data.toString());
+
+                if (!authed) {
+                  if (msg.type === 'auth-response') {
+                    if (msg.pin === activePin) {
+                      authed = true;
+                      mainWindow?.webContents.send('client-connected');
+                    } else {
+                      ws.send(JSON.stringify({ type: 'auth-error' }));
+                      ws.close();
+                      clientSocket = null;
+                    }
+                  }
+                  return;
+                }
+
                 mainWindow?.webContents.send('signaling-message', msg);
               } catch (err) {
                 console.error('Error parsing signaling message:', err);
