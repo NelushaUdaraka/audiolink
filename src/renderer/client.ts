@@ -197,10 +197,22 @@ async function setupPeerConnection(offerSdp: string): Promise<void> {
     new RTCSessionDescription({ type: 'offer', sdp: offerSdp })
   );
   const answer = await clientPeerConnection.createAnswer();
-  await clientPeerConnection.setLocalDescription(answer);
+  let answerSdp = answer.sdp || '';
+
+  // Mirror the offer's transport budget and codec params in the answer so the
+  // receiver side doesn't cap the negotiated bitrate below what the server selected.
+  answerSdp = answerSdp.replace(/(m=audio[^\r\n]*\r\n)/, '$1b=AS:510\r\n');
+  const answerOpusPt = (answerSdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i) ?? [])[1] ?? '111';
+  answerSdp = answerSdp.replace(
+    new RegExp(`a=fmtp:${answerOpusPt} [^\r\n]*`),
+    `a=fmtp:${answerOpusPt} stereo=1;maxaveragebitrate=510000`
+  );
+  answerSdp = answerSdp.replace(new RegExp(`a=rtcp-fb:${answerOpusPt} transport-cc\r\n`, 'g'), '');
+
+  await clientPeerConnection.setLocalDescription({ type: 'answer', sdp: answerSdp });
 
   if (clientWebSocket?.readyState === WebSocket.OPEN) {
-    clientWebSocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp }));
+    clientWebSocket.send(JSON.stringify({ type: 'answer', sdp: answerSdp }));
   }
 
   // Latency polling
@@ -503,8 +515,18 @@ function applyMuteState(muted: boolean): void {
   ($('icon-muted') as HTMLElement).style.display = muted ? '' : 'none';
 }
 
-function toggleMute(): void {
+export function toggleMute(): void {
   applyMuteState(!isMuted);
+}
+
+export function adjustVolume(delta: number): void {
+  const slider = $<HTMLInputElement>('volume-slider');
+  const next = Math.max(0, Math.min(300, parseInt(slider.value, 10) + delta));
+  slider.value = String(next);
+  $<HTMLSpanElement>('volume-value').textContent = `${next}%`;
+  if (isMuted) applyMuteState(false);
+  if (clientGainNode) clientGainNode.gain.value = next / 100;
+  api.saveSettings({ volume: next });
 }
 
 // ─── Event listeners (registered once at module load) ─────────────────────────

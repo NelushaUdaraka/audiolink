@@ -294,7 +294,13 @@ body.theme-light .theme-icon-dark  { display: none; }
   display: flex;
   flex-direction: column;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+
+.view.active::-webkit-scrollbar { width: 4px; }
+.view.active::-webkit-scrollbar-track { background: transparent; }
+.view.active::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 #view-mode-select { justify-content: center; }
 

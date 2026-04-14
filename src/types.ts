@@ -40,6 +40,15 @@ export type SignalingMessage =
   | SignalingAuthResponse
   | SignalingAuthError;
 
+// ─── Hotkey Settings ─────────────────────────────────────────────────────────
+
+export interface HotkeySettings {
+  mute?: string;
+  volumeUp?: string;
+  volumeDown?: string;
+  disconnect?: string;
+}
+
 // ─── IPC response types ──────────────────────────────────────────────────
 
 export interface SignalingServerResult {
@@ -56,6 +65,12 @@ export interface StopServerResult {
 
 export type ConnectionStatus = 'idle' | 'waiting' | 'connected' | 'streaming' | 'error';
 
+export interface BlacklistEntry {
+  mac: string;
+  ip: string;
+  deviceName: string | null;
+}
+
 export interface DiscoveredServer {
   ip: string;
   port: number;
@@ -68,13 +83,21 @@ export interface AppSettings {
   updateServerUrl?: string;
   theme?: 'dark' | 'light';
   minimizeToTray?: boolean;
-  serverPin?: string;
   volume?: number;          // client volume 0–300
   outputDeviceId?: string;  // client audio output device ID
-  inputDeviceId?: string;   // server audio input device ID
-  bitrate?: number;         // server bitrate in bps
   windowOpacity?: number;   // window opacity 0.2–1.0
   clientTab?: 'auto' | 'manual';  // last active client connection tab
+  hotkeys?: HotkeySettings;
+  // Server-mode settings
+  serverPin?: string;
+  inputDeviceId?: string;
+  bitrate?: number;
+  // Broadcast-mode settings (independent from server)
+  broadcastPin?: string;
+  broadcastInputDeviceId?: string;
+  broadcastBitrate?: number;
+  maxClients?: number;            // max simultaneous broadcast clients (1–10)
+  blacklistedMacs?: BlacklistEntry[];  // devices blocked from connecting
 }
 
 export interface ElectronAPI {
@@ -87,7 +110,7 @@ export interface ElectronAPI {
   getLocalIP: () => Promise<string>;
 
   // Signaling server (server mode)
-  startSignalingServer: (port?: number, pin?: string) => Promise<SignalingServerResult>;
+  startSignalingServer: (port?: number, pin?: string, maxClients?: number) => Promise<SignalingServerResult>;
   stopSignalingServer: () => Promise<StopServerResult>;
 
   // Auto-Discovery Client
@@ -96,10 +119,14 @@ export interface ElectronAPI {
   onServerDiscovered: (callback: (server: DiscoveredServer) => void) => void;
 
   // Signaling message relay
-  sendToClient: (message: SignalingMessage) => void;
-  onSignalingMessage: (callback: (message: SignalingMessage) => void) => void;
-  onClientConnected: (callback: () => void) => void;
-  onClientDisconnected: (callback: () => void) => void;
+  sendToClient: (clientId: string, message: SignalingMessage) => void;
+  disconnectClient: (clientId: string) => void;
+  blacklistClient: (clientId: string) => Promise<BlacklistEntry[]>;
+  removeFromBlacklist: (mac: string) => Promise<BlacklistEntry[]>;
+  getBlacklist: () => Promise<BlacklistEntry[]>;
+  onSignalingMessage: (callback: (clientId: string, message: SignalingMessage) => void) => void;
+  onClientConnected: (callback: (clientId: string, clientIp: string, clientMac: string | null, deviceName: string | null) => void) => void;
+  onClientDisconnected: (callback: (clientId: string) => void) => void;
 
   // Settings persistence
   getSettings: () => Promise<AppSettings>;
@@ -111,6 +138,14 @@ export interface ElectronAPI {
   // Tray
   setMinimizeToTray: (enabled: boolean) => Promise<void>;
   setWindowOpacity: (opacity: number) => Promise<void>;
+
+  // Global hotkeys
+  registerHotkeys: (hotkeys: HotkeySettings) => Promise<void>;
+  onHotkeyTriggered: (callback: (action: 'mute' | 'volume-up' | 'volume-down' | 'disconnect') => void) => void;
+
+  // Settings export / import
+  exportSettings: () => Promise<{ success: boolean; error?: string }>;
+  importSettings: () => Promise<{ success: boolean; settings?: AppSettings; error?: string }>;
 
   // Auto-updates
   onUpdateChecking: (callback: () => void) => void;

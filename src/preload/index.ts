@@ -11,8 +11,8 @@ const electronAPI: ElectronAPI = {
   getLocalIP: (): Promise<string> => ipcRenderer.invoke('get-local-ip'),
 
   // Signaling server (server mode)
-  startSignalingServer: (port?: number, pin?: string): Promise<SignalingServerResult> =>
-    ipcRenderer.invoke('start-signaling-server', port, pin),
+  startSignalingServer: (port?: number, pin?: string, maxClients?: number): Promise<SignalingServerResult> =>
+    ipcRenderer.invoke('start-signaling-server', port, pin, maxClients),
   stopSignalingServer: (): Promise<StopServerResult> =>
     ipcRenderer.invoke('stop-signaling-server'),
 
@@ -24,18 +24,28 @@ const electronAPI: ElectronAPI = {
   },
 
   // Signaling message relay
-  sendToClient: (message: SignalingMessage): void =>
-    ipcRenderer.send('send-to-client', message),
-  onSignalingMessage: (callback: (message: SignalingMessage) => void): void => {
-    ipcRenderer.on('signaling-message', (_event: IpcRendererEvent, message: SignalingMessage) =>
-      callback(message)
+  sendToClient: (clientId: string, message: SignalingMessage): void =>
+    ipcRenderer.send('send-to-client', clientId, message),
+  disconnectClient: (clientId: string): void =>
+    ipcRenderer.send('disconnect-client', clientId),
+  blacklistClient: (clientId: string): Promise<string[]> =>
+    ipcRenderer.invoke('blacklist-client', clientId),
+  removeFromBlacklist: (ip: string): Promise<string[]> =>
+    ipcRenderer.invoke('remove-from-blacklist', ip),
+  getBlacklist: (): Promise<string[]> =>
+    ipcRenderer.invoke('get-blacklist'),
+  onSignalingMessage: (callback: (clientId: string, message: SignalingMessage) => void): void => {
+    ipcRenderer.on('signaling-message', (_event: IpcRendererEvent, clientId: string, message: SignalingMessage) =>
+      callback(clientId, message)
     );
   },
-  onClientConnected: (callback: () => void): void => {
-    ipcRenderer.on('client-connected', () => callback());
+  onClientConnected: (callback: (clientId: string, clientIp: string, clientMac: string | null, deviceName: string | null) => void): void => {
+    ipcRenderer.on('client-connected', (_event: IpcRendererEvent, clientId: string, clientIp: string, clientMac: string | null, deviceName: string | null) =>
+      callback(clientId, clientIp, clientMac, deviceName)
+    );
   },
-  onClientDisconnected: (callback: () => void): void => {
-    ipcRenderer.on('client-disconnected', () => callback());
+  onClientDisconnected: (callback: (clientId: string) => void): void => {
+    ipcRenderer.on('client-disconnected', (_event: IpcRendererEvent, clientId: string) => callback(clientId));
   },
 
   // Settings
@@ -51,6 +61,16 @@ const electronAPI: ElectronAPI = {
   // Tray
   setMinimizeToTray: (enabled: boolean): Promise<void> => ipcRenderer.invoke('set-minimize-to-tray', enabled),
   setWindowOpacity: (opacity: number): Promise<void> => ipcRenderer.invoke('set-window-opacity', opacity),
+
+  // Global hotkeys
+  registerHotkeys: (hotkeys) => ipcRenderer.invoke('register-hotkeys', hotkeys),
+  onHotkeyTriggered: (callback) => {
+    ipcRenderer.on('hotkey-triggered', (_e, action) => callback(action));
+  },
+
+  // Settings export / import
+  exportSettings: () => ipcRenderer.invoke('export-settings'),
+  importSettings: () => ipcRenderer.invoke('import-settings'),
 
   // Auto-updates
   onUpdateChecking: (callback: () => void): void => {

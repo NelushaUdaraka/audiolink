@@ -8,6 +8,13 @@ let serverAnalyser: AnalyserNode | null = null;
 let serverAnimFrame: number | null = null;
 let isServerRunning = false;
 let serverStateCallback: (() => void) | null = null;
+let serverClientIp: string | null = null;
+let serverClientMac: string | null = null;
+let serverClientDeviceName: string | null = null;
+let serverClientId: string | null = null;
+let blacklistChangedCallback: (() => void) | null = null;
+
+export function setBlacklistChangedCallback(cb: () => void): void { blacklistChangedCallback = cb; }
 
 // ─── Device enumeration ───────────────────────────────────────────────────────
 export async function refreshDevices(): Promise<void> {
@@ -93,12 +100,10 @@ function setupLevelMeter(stream: MediaStream): void {
 }
 
 // ─── Peer connection ──────────────────────────────────────────────────────────
-async function setupPeerConnection(): Promise<void> {
+async function setupPeerConnection(clientId: string): Promise<void> {
   cleanupPeerConnection();
 
-  serverPeerConnection = new RTCPeerConnection({
-    iceServers: [],  // LAN only — no STUN needed, avoids external lookup delay
-  });
+  serverPeerConnection = new RTCPeerConnection({ iceServers: [] });
 
   serverStream?.getAudioTracks().forEach((track) => {
     serverPeerConnection!.addTrack(track, serverStream!);
@@ -106,41 +111,55 @@ async function setupPeerConnection(): Promise<void> {
 
   serverPeerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-      api.sendToClient({ type: 'ice-candidate', candidate: event.candidate.toJSON() });
+      api.sendToClient(clientId, { type: 'ice-candidate', candidate: event.candidate.toJSON() });
     }
   };
 
   serverPeerConnection.onconnectionstatechange = () => {
     const state = serverPeerConnection?.connectionState;
-    if (state === 'connected') setStatus('server-status-badge', 'streaming', 'Streaming');
-    else if (state === 'disconnected' || state === 'failed')
+    if (state === 'connected') {
+      setStatus('server-status-badge', 'streaming', 'Streaming');
+      const bitrate = parseInt($<HTMLSelectElement>('audio-bitrate-select').value, 10);
+      const sender = serverPeerConnection?.getSenders().find((s) => s.track?.kind === 'audio');
+      if (sender) {
+        const params = sender.getParameters();
+        if (!params.encodings) params.encodings = [{}];
+        params.encodings[0].maxBitrate = bitrate;
+        sender.setParameters(params).catch(() => {});
+      }
+    } else if (state === 'disconnected' || state === 'failed') {
       setStatus('server-status-badge', 'waiting', 'Waiting for client...');
+    }
   };
 
   const bitrateSelect = $<HTMLSelectElement>('audio-bitrate-select');
-  const maxBitrate = bitrateSelect?.value ?? '128000';
+  const maxBitrate = Math.min(parseInt(bitrateSelect?.value ?? '128000', 10), 510000);
+  const maxBitrateKbps = Math.ceil(maxBitrate / 1000);
   const offer = await serverPeerConnection.createOffer();
   let sdp = offer.sdp || '';
 
-  // Force 5ms Opus frames (browser default is 20ms) — reduces packetization latency.
-  // a=ptime is per-media-section; replace existing or insert after m=audio line.
+  // ptime
   if (/a=ptime:\d+/.test(sdp)) {
     sdp = sdp.replace(/a=ptime:\d+/, 'a=ptime:5');
   } else {
     sdp = sdp.replace(/(m=audio[^\r\n]*[\r\n]+)/, '$1a=ptime:5\r\n');
   }
 
-  // minptime=2  → accept frames as small as 2.5 ms
-  // useinbandfec=0 → disable FEC (adds redundant data that inflates jitter buffer)
-  // cbr=1        → constant bitrate gives the receiver a steady packet rhythm,
-  //                letting the adaptive jitter buffer stay small
+  // Declare transport budget
+  sdp = sdp.replace(/(m=audio[^\r\n]*\r\n)/, `$1b=AS:${maxBitrateKbps}\r\n`);
+
+  // Find the Opus payload type and REPLACE (not append) its fmtp line to avoid duplicate params
+  const opusPt = (sdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i) ?? [])[1] ?? '111';
   sdp = sdp.replace(
-    /a=fmtp:(\d+) (.*)/,
-    `a=fmtp:$1 $2;minptime=2;useinbandfec=0;stereo=1;cbr=1;maxaveragebitrate=${maxBitrate}`
+    new RegExp(`a=fmtp:${opusPt} [^\r\n]*`),
+    `a=fmtp:${opusPt} minptime=2;useinbandfec=0;stereo=1;cbr=1;maxaveragebitrate=${maxBitrate}`
   );
 
+  // Remove transport-cc RTCP feedback — prevents GCC from throttling the encoder on LAN
+  sdp = sdp.replace(new RegExp(`a=rtcp-fb:${opusPt} transport-cc\r\n`, 'g'), '');
+
   await serverPeerConnection.setLocalDescription({ type: 'offer', sdp });
-  api.sendToClient({ type: 'offer', sdp });
+  api.sendToClient(clientId, { type: 'offer', sdp });
 }
 
 function cleanupPeerConnection(): void {
@@ -161,6 +180,61 @@ async function handleSignalingMessage(message: SignalingMessage): Promise<void> 
     console.error('Error handling signaling message:', err);
   }
 }
+
+// ─── Client list ──────────────────────────────────────────────────────────────
+function renderServerClients(): void {
+  const list = document.getElementById('server-clients-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!serverClientIp || !serverClientId) {
+    const empty = document.createElement('div');
+    empty.className = 'clients-empty';
+    empty.textContent = 'No client connected';
+    list.appendChild(empty);
+    return;
+  }
+  const card = document.createElement('div');
+  card.className = 'client-card';
+  const displayName = serverClientDeviceName ?? serverClientIp;
+  const metaText = serverClientMac
+    ? `${serverClientIp} · ${serverClientMac}`
+    : serverClientIp;
+  card.innerHTML = `
+    <div class="client-card-header">
+      <span class="client-card-name">${displayName}</span>
+    </div>
+    <div class="client-card-meta">${metaText}</div>
+    <div class="client-card-actions">
+      <button class="client-card-btn client-card-btn--ban">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M4.93 4.93l14.14 14.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Ban
+      </button>
+      <button class="client-card-btn client-card-btn--kick">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        Kick
+      </button>
+    </div>
+  `;
+  const capturedId = serverClientId;
+  card.querySelector<HTMLButtonElement>('.client-card-btn--ban')!
+    .addEventListener('click', async () => {
+      if (capturedId) {
+        await api.blacklistClient(capturedId);
+        blacklistChangedCallback?.();
+      }
+    });
+  card.querySelector<HTMLButtonElement>('.client-card-btn--kick')!
+    .addEventListener('click', () => {
+      if (serverClientId) api.disconnectClient(serverClientId);
+    });
+  list.appendChild(card);
+}
+
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 export function getIsServerRunning(): boolean { return isServerRunning; }
@@ -190,6 +264,7 @@ export async function initServer(): Promise<void> {
 function setPinControlsEnabled(enabled: boolean): void {
   $<HTMLInputElement>('server-pin-input').disabled = !enabled;
   $<HTMLButtonElement>('btn-generate-pin').disabled = !enabled;
+  $<HTMLButtonElement>('btn-clear-pin').disabled = !enabled;
 }
 
 export async function startServer(): Promise<void> {
@@ -201,7 +276,7 @@ export async function startServer(): Promise<void> {
     setupLevelMeter(serverStream);
 
     const pin = $<HTMLInputElement>('server-pin-input').value.trim() || undefined;
-    const result = await api.startSignalingServer(8765, pin);
+    const result = await api.startSignalingServer(8765, pin, 1);
     if (!result.success) throw new Error(result.error || 'Failed to start signaling server');
 
     isServerRunning = true;
@@ -212,19 +287,29 @@ export async function startServer(): Promise<void> {
     setStatus('server-status-badge', 'waiting', 'Waiting for client...');
     showToast('Server ready — share your IP with the client', 'success');
 
-    api.onClientConnected(async () => {
+    api.onClientConnected(async (clientId, clientIp, clientMac, deviceName) => {
+      serverClientId = clientId;
+      serverClientIp = clientIp;
+      serverClientMac = clientMac;
+      serverClientDeviceName = deviceName;
       setStatus('server-status-badge', 'connected', 'Client connected');
       showToast('Client connected', 'success');
-      await setupPeerConnection();
+      renderServerClients();
+      await setupPeerConnection(clientId);
     });
 
-    api.onClientDisconnected(() => {
+    api.onClientDisconnected((_clientId) => {
+      serverClientId = null;
+      serverClientIp = null;
+      serverClientMac = null;
+      serverClientDeviceName = null;
+      renderServerClients();
       setStatus('server-status-badge', 'waiting', 'Waiting for client...');
       showToast('Client disconnected', 'error');
       cleanupPeerConnection();
     });
 
-    api.onSignalingMessage(async (message) => {
+    api.onSignalingMessage(async (_clientId, message) => {
       await handleSignalingMessage(message);
     });
   } catch (err) {
@@ -239,6 +324,10 @@ export async function stopServer(): Promise<void> {
   api.removeAllListeners('signaling-message');
   api.removeAllListeners('client-connected');
   api.removeAllListeners('client-disconnected');
+  serverClientId = null;
+  serverClientIp = null;
+  serverClientMac = null;
+  serverClientDeviceName = null;
   cleanupPeerConnection();
 
   serverStream?.getTracks().forEach((t) => t.stop());
@@ -254,9 +343,10 @@ export async function stopServer(): Promise<void> {
   $<HTMLButtonElement>('btn-stop-server').style.display = 'none';
   $<HTMLDivElement>('server-level-bar').style.width = '0%';
   setStatus('server-status-badge', 'idle', 'Idle');
+  renderServerClients();
 }
 
-// ─── Event listeners (registered once at module load) ─────────────────────────
+// ─── Event listeners ──────────────────────────────────────────────────────────
 $<HTMLInputElement>('server-pin-input').addEventListener('change', async () => {
   const pin = $<HTMLInputElement>('server-pin-input').value.replace(/\D/g, '').slice(0, 6);
   $<HTMLInputElement>('server-pin-input').value = pin;
@@ -265,9 +355,13 @@ $<HTMLInputElement>('server-pin-input').addEventListener('change', async () => {
 
 $('btn-generate-pin').addEventListener('click', async () => {
   const pin = String(Math.floor(100000 + Math.random() * 900000)).slice(0, 6);
-  const input = $<HTMLInputElement>('server-pin-input');
-  input.value = pin;
+  $<HTMLInputElement>('server-pin-input').value = pin;
   await api.saveSettings({ serverPin: pin });
+});
+
+$('btn-clear-pin').addEventListener('click', async () => {
+  $<HTMLInputElement>('server-pin-input').value = '';
+  await api.saveSettings({ serverPin: '' });
 });
 
 $('btn-refresh-devices').addEventListener('click', refreshDevices);
@@ -293,7 +387,7 @@ $<HTMLSelectElement>('audio-device-select').addEventListener('change', async (e)
       if (sender && audioTrack) await sender.replaceTrack(audioTrack);
     }
     showToast('Audio source changed', 'success');
-  } catch (err) {
+  } catch {
     showToast('Could not switch audio source', 'error');
   }
 });

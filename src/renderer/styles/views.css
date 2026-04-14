@@ -77,8 +77,9 @@
   flex-shrink: 0;
 }
 
-.mode-row-icon--server { background: rgba(0, 212, 170, 0.12); color: var(--accent-start); }
-.mode-row-icon--client { background: rgba(0, 160, 255, 0.12); color: var(--accent-end); }
+.mode-row-icon--server    { background: rgba(0, 212, 170, 0.12); color: var(--accent-start); }
+.mode-row-icon--broadcast { background: rgba(160, 80, 255, 0.12); color: #a050ff; }
+.mode-row-icon--client    { background: rgba(0, 160, 255, 0.12); color: var(--accent-end); }
 
 .mode-row-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .mode-row-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
@@ -118,6 +119,10 @@
 }
 
 /* ─── Settings View ───────────────────────────────────────────────────────── */
+#view-settings {
+  /* scrolling inherited from .view.active */
+}
+
 .settings-content {
   display: flex;
   flex-direction: column;

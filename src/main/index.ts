@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, globalShortcut } from 'electron';
 import path from 'node:path';
 import { userDataPath } from './settings';
 import { createWindow, setForceQuit } from './window';
@@ -6,6 +6,7 @@ import { registerWindowIpc } from './ipc/window';
 import { registerSignalingIpc, getWss } from './ipc/signaling';
 import { registerDiscoveryIpc } from './ipc/discovery';
 import { initAutoUpdater, registerUpdateSettingsIpc } from './ipc/updater';
+import { registerHotkeysIpc } from './ipc/hotkeys';
 
 // ─── Redirect Chromium cache to writable app-local dir ───────────────────────
 // Fixes "Unable to move the cache: Access is denied" on managed machines.
@@ -19,6 +20,7 @@ registerWindowIpc();
 registerSignalingIpc();
 registerDiscoveryIpc();
 registerUpdateSettingsIpc();
+registerHotkeysIpc();
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
@@ -32,7 +34,10 @@ app.whenReady().then(() => {
 
 // Signal windows that a real quit is in progress so the close handler
 // does not intercept and hide the window into the tray.
-app.on('before-quit', () => setForceQuit(true));
+app.on('before-quit', () => {
+  globalShortcut.unregisterAll();
+  setForceQuit(true);
+});
 
 app.on('window-all-closed', () => {
   const wss = getWss();

@@ -134,7 +134,7 @@
 
 .card-body--col { flex-direction: column; align-items: stretch; gap: 0; }
 
-.card-divider { height: 1px; background: var(--border-color); margin: 0 -12px; }
+.card-divider { height: 1px; background: var(--border-color); margin: 6px -12px; }
 
 /* ─── Connection Inline (IP:port in card header) ──────────────────────────── */
 .connection-inline {
@@ -148,6 +148,10 @@
 }
 
 .conn-sep { color: var(--text-muted); margin: 0 2px; }
+
+.client-count-badge { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+.stepper { display: flex; align-items: center; gap: 4px; }
 
 /* ─── Settings Rows ───────────────────────────────────────────────────────── */
 .settings-row {
@@ -271,6 +275,33 @@
   gap: 10px;
   margin-top: auto;
   padding-top: 14px;
+}
+
+/* ─── Generic button + small variant ────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-color);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+}
+
+.btn:hover { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); border-color: var(--border-glow); }
+.btn:active { transform: scale(0.97); }
+
+.btn--sm { padding: 5px 12px; font-size: 12px; }
+
+.settings-data-row {
+  display: flex;
+  gap: 8px;
 }
 
 .btn-primary, .btn-danger {
@@ -636,6 +667,29 @@ body.theme-light .toast {
 }
 .btn-icon-sm--muted:hover { background: rgba(255, 68, 102, 0.14); color: var(--danger); border-color: rgba(255, 68, 102, 0.45); }
 
+/* ─── Hotkey Inputs ──────────────────────────────────────────────────────── */
+.hotkey-field {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.hotkey-input {
+  width: 148px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hotkey-input:focus {
+  color: var(--accent-start);
+  border-color: var(--border-glow);
+  outline: none;
+}
+
 /* ─── PIN Modal Overlay ───────────────────────────────────────────────────── */
 #pin-modal-overlay {
   position: fixed;
@@ -831,4 +885,143 @@ body.theme-light .latency-stat-pill--dim {
   background: rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 0, 0, 0.1);
   color: var(--text-secondary);
+}
+
+/* ─── Connected Clients List ──────────────────────────────────────────────── */
+.clients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 28px;
+}
+
+.clients-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 2px 0;
+}
+
+.client-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.client-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.client-card-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-meta {
+  font-size: 11px;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  color: var(--text-muted);
+}
+
+.client-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.client-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.client-card-btn--ban:hover {
+  background: rgba(255, 160, 0, 0.12);
+  border-color: rgba(255, 160, 0, 0.3);
+  color: #ffa000;
+}
+
+.client-card-btn--kick:hover {
+  background: rgba(255, 80, 80, 0.12);
+  border-color: rgba(255, 80, 80, 0.3);
+  color: #ff5050;
+}
+
+/* ─── Blacklist (Settings) ────────────────────────────────────────────────── */
+.blacklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 28px;
+}
+
+.blacklist-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(255, 80, 80, 0.05);
+  border: 1px solid rgba(255, 80, 80, 0.18);
+  border-radius: var(--radius-sm);
+}
+
+.blacklist-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blacklist-card-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blacklist-card-meta {
+  font-size: 11px;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  color: var(--text-muted);
+}
+
+.blacklist-card-unban {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-start);
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.blacklist-card-unban:hover {
+  background: rgba(0, 212, 170, 0.2);
+  border-color: rgba(0, 212, 170, 0.4);
 }
