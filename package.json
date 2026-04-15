@@ -3,7 +3,7 @@
   "productName": "AudioLink",
   "version": "0.11.3",
   "description": "Low-latency audio streaming over your local network",
-  "repository": "https://github.com/iGhostNeo/audiolink.git",
+  "repository": "https://github.com/NelushaUdaraka/audiolink.git",
   "main": "out/main/main.js",
   "private": true,
   "scripts": {
@@ -51,14 +51,14 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "iGhostNeo",
+      "owner": "Nelusha",
       "repo": "audiolink"
     }
   },
   "keywords": [],
   "author": {
-    "name": "iGhostNeo",
-    "email": "ighostudaraka@gmail.com"
+    "name": "Nelusha",
+    "email": "nelushaudaraka@gmail.com"
   },
   "license": "MIT",
   "devDependencies": {
