@@ -20,5 +20,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NSIS-based Windows installer with per-user install support
 - Compact translucent UI with Server, Client, and Broadcast modes
 
-[Unreleased]: https://github.com/iGhostNeo/audiolink/compare/v0.11.3...HEAD
-[0.11.3]: https://github.com/iGhostNeo/audiolink/releases/tag/v0.11.3
+[Unreleased]: https://github.com/NelushaUdaraka/audiolink/compare/v0.11.3...HEAD
+[0.11.3]: https://github.com/NelushaUdaraka/audiolink/releases/tag/v0.11.3
