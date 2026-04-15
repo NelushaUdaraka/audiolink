@@ -92,8 +92,7 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('update-error', (_e, message: string) => callback(message));
   },
   installUpdate: (): Promise<void> => ipcRenderer.invoke('install-update'),
-  getUpdateServerUrl: (): Promise<string> => ipcRenderer.invoke('get-update-server-url'),
-  setUpdateServerUrl: (url: string): Promise<void> => ipcRenderer.invoke('set-update-server-url', url),
+  setAutoUpdate: (enabled: boolean): Promise<void> => ipcRenderer.invoke('set-auto-update', enabled),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

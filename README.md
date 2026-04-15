@@ -1,5 +1,9 @@
 # AudioLink 🎧
 
+[![GitHub release](https://img.shields.io/github/v/release/iGhostNeo/audiolink)](https://github.com/iGhostNeo/audiolink/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/iGhostNeo/audiolink/release.yml)](https://github.com/iGhostNeo/audiolink/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 AudioLink is a high-performance, low-latency audio streaming utility for your local network. Built with Electron, it allows you to stream system audio or microphone input from one Windows device (Server) to another (Client) with minimal delay.
 
 ## ✨ Key Features
@@ -24,7 +28,7 @@ AudioLink is a high-performance, low-latency audio streaming utility for your lo
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/audiolink.git
+   git clone https://github.com/iGhostNeo/audiolink.git
    cd audiolink
    ```
 

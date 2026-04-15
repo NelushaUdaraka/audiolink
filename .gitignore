@@ -90,3 +90,10 @@ typings/
 
 # Electron-Forge
 out/
+
+# Electron-Builder output
+dist/
+
+# Windows artifacts
+Thumbs.db
+desktop.ini

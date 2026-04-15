@@ -97,14 +97,15 @@ $('btn-back-settings').addEventListener('click', () => {
   showView(previousView);
 });
 
-api.getUpdateServerUrl().then((url) => {
-  if (url) $<HTMLInputElement>('update-server-url').value = url;
+// ─── Auto-update toggle ───────────────────────────────────────────────────────
+api.getSettings().then((settings) => {
+  $<HTMLInputElement>('auto-update-toggle').checked = settings.autoUpdate !== false;
 });
 
-$('btn-save-update-url').addEventListener('click', async () => {
-  const url = $<HTMLInputElement>('update-server-url').value.trim();
-  await api.setUpdateServerUrl(url);
-  showToast(url ? 'Update server saved' : 'Update server cleared', 'success');
+$<HTMLInputElement>('auto-update-toggle').addEventListener('change', async (e) => {
+  const enabled = (e.target as HTMLInputElement).checked;
+  await api.setAutoUpdate(enabled);
+  await api.saveSettings({ autoUpdate: enabled });
 });
 
 // ─── Home indicators ──────────────────────────────────────────────────────────
@@ -251,9 +252,9 @@ $('btn-import-settings').addEventListener('click', async () => {
     $<HTMLInputElement>('hk-disconnect').value  = s.hotkeys.disconnect ?? '';
     api.registerHotkeys(s.hotkeys);
   }
-  if (s.updateServerUrl !== undefined) {
-    $<HTMLInputElement>('update-server-url').value = s.updateServerUrl;
-    api.setUpdateServerUrl(s.updateServerUrl);
+  if (s.autoUpdate !== undefined) {
+    $<HTMLInputElement>('auto-update-toggle').checked = s.autoUpdate;
+    await api.setAutoUpdate(s.autoUpdate);
   }
   showToast('Settings imported', 'success');
 });

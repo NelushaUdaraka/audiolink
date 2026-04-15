@@ -3,24 +3,15 @@ import { autoUpdater } from 'electron-updater';
 import { mainWindow } from '../window';
 import { loadSettings, saveSettings } from '../settings';
 
-// URL is stored in settings so no rebuild is needed to change the server.
-// To switch to GitHub later: remove updateServerUrl from settings and add a
-// "publish": { "provider": "github", "owner": "...", "repo": "..." } block
-// to package.json — the else branch below picks it up automatically.
 export function registerUpdateSettingsIpc(): void {
-  ipcMain.handle('get-update-server-url', () => loadSettings().updateServerUrl || '');
-  ipcMain.handle('set-update-server-url', (_e, url: string) => saveSettings({ updateServerUrl: url }));
+  ipcMain.handle('set-auto-update', (_e, enabled: boolean) => saveSettings({ autoUpdate: enabled }));
 }
 
 export function initAutoUpdater(): void {
   if (!app.isPackaged) return;
 
   const settings = loadSettings();
-  const updateUrl = settings.updateServerUrl?.trim();
-
-  if (updateUrl) {
-    autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl } as Parameters<typeof autoUpdater.setFeedURL>[0]);
-  }
+  if (settings.autoUpdate === false) return;
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;

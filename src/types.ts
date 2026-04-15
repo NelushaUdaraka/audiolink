@@ -80,7 +80,7 @@ export interface DiscoveredServer {
 export interface AppSettings {
   lastIp: string;
   lastPort: number;
-  updateServerUrl?: string;
+  autoUpdate?: boolean;
   theme?: 'dark' | 'light';
   minimizeToTray?: boolean;
   volume?: number;          // client volume 0–300
@@ -155,8 +155,7 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: (version: string) => void) => void;
   onUpdateError: (callback: (message: string) => void) => void;
   installUpdate: () => Promise<void>;
-  getUpdateServerUrl: () => Promise<string>;
-  setUpdateServerUrl: (url: string) => Promise<void>;
+  setAutoUpdate: (enabled: boolean) => Promise<void>;
 }
 
 // ─── Extend Window with electronAPI ──────────────────────────────────────

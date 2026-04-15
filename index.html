@@ -291,16 +291,15 @@
               </svg>
               <span>Updates</span>
             </div>
-            <div class="card-body card-body--col">
-              <span class="settings-label-block">Update Server URL</span>
-              <div class="settings-url-row">
-                <input type="url" id="update-server-url" class="input" placeholder="http://192.168.1.x:8766" />
-                <button id="btn-save-update-url" class="btn-icon btn-icon--sm" title="Save URL">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
+            <div class="card-body">
+              <div class="setting-row-info">
+                <span class="setting-row-label">Auto-update</span>
+                <span class="setting-row-desc">Automatically check and install updates</span>
               </div>
+              <label class="toggle">
+                <input type="checkbox" id="auto-update-toggle" checked />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
             </div>
           </div>
 
