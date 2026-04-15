@@ -52,7 +52,8 @@
     "publish": {
       "provider": "github",
       "owner": "NelushaUdaraka",
-      "repo": "audiolink"
+      "repo": "audiolink",
+      "releaseType": "release"
     }
   },
   "keywords": [],
