@@ -25,6 +25,24 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Extract changelog
+        id: changelog
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $lines = Get-Content CHANGELOG.md
+          $capture = $false
+          $notes = @()
+          foreach ($line in $lines) {
+            if ($line -match "^## \[$([regex]::Escape($version))\]") {
+              $capture = $true
+              continue
+            }
+            if ($capture -and $line -match "^## \[") { break }
+            if ($capture) { $notes += $line }
+          }
+          ($notes -join "`n").Trim() | Out-File -FilePath release-notes.txt -Encoding utf8 -NoNewline
+
       - name: Install dependencies
         run: npm ci
 
@@ -32,3 +50,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run release
+
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $notes = Get-Content release-notes.txt -Raw
+          gh release edit "${{ github.ref_name }}" --notes $notes
