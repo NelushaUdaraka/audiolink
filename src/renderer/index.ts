@@ -2,7 +2,7 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/views.css';
 import iconUrl from '../../build/icon.png';
-import { api, $, showView, showToast } from './utils';
+import { api, $, showView, showToast, syncSliderFill } from './utils';
 import type { BlacklistEntry } from '../types';
 import { initServer, getIsServerRunning, setServerStateCallback, setBlacklistChangedCallback } from './server';
 import { initBroadcast, getIsBroadcastRunning, setBroadcastStateCallback, setBcBlacklistChangedCallback } from './broadcast';
@@ -23,8 +23,16 @@ function applyTheme(theme: Theme): void {
   document.body.classList.toggle('theme-light', theme === 'light');
   $('theme-dark-btn').classList.toggle('theme-seg-btn--active', theme === 'dark');
   $('theme-light-btn').classList.toggle('theme-seg-btn--active', theme === 'light');
+  $('theme-dark-btn').setAttribute('aria-pressed', String(theme === 'dark'));
+  $('theme-light-btn').setAttribute('aria-pressed', String(theme === 'light'));
   localStorage.setItem('theme', theme);
 }
+
+// ─── Range sliders: keep the filled track in sync while dragging ─────────────
+document.querySelectorAll<HTMLInputElement>('input.slider').forEach((slider) => {
+  syncSliderFill(slider);
+  slider.addEventListener('input', () => syncSliderFill(slider));
+});
 
 // Apply instantly from localStorage to avoid flash
 applyTheme((localStorage.getItem('theme') as Theme | null) ?? 'dark');
@@ -39,6 +47,7 @@ api.getSettings().then(async (settings) => {
     const pct = Math.round(settings.windowOpacity * 100);
     $<HTMLInputElement>('opacity-slider').value = String(pct);
     $<HTMLSpanElement>('opacity-value').textContent = `${pct}%`;
+    syncSliderFill($<HTMLInputElement>('opacity-slider'));
   }
 
   if (settings.hotkeys) {
@@ -117,6 +126,11 @@ function updateHomeIndicators(): void {
   show('server-mode-badge', getIsServerRunning());
   show('broadcast-mode-badge', getIsBroadcastRunning());
   show('client-mode-badge', getIsClientConnected());
+  // Drives the home logo animation: it only moves while audio is live
+  document.body.classList.toggle(
+    'is-live',
+    getIsServerRunning() || getIsBroadcastRunning() || getIsClientConnected()
+  );
 }
 
 setServerStateCallback(updateHomeIndicators);
@@ -243,6 +257,7 @@ $('btn-import-settings').addEventListener('click', async () => {
     const pct = Math.round(s.windowOpacity * 100);
     $<HTMLInputElement>('opacity-slider').value = String(pct);
     $<HTMLSpanElement>('opacity-value').textContent = `${pct}%`;
+    syncSliderFill($<HTMLInputElement>('opacity-slider'));
     api.setWindowOpacity(s.windowOpacity);
   }
   if (s.hotkeys) {

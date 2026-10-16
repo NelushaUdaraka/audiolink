@@ -15,6 +15,9 @@ export function showToast(message: string, type: '' | 'error' | 'success' = ''):
   if (!toast) {
     toast = document.createElement('div');
     toast.className = 'toast';
+    // Announced politely by screen readers without stealing focus
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-atomic', 'true');
     document.body.appendChild(toast);
   }
 
@@ -45,6 +48,14 @@ window.addEventListener('focus', () => {
     }, 1500);
   }
 });
+
+/** Mirrors a range input's position into --fill so CSS can paint the filled track. */
+export function syncSliderFill(slider: HTMLInputElement): void {
+  const min = Number(slider.min || 0);
+  const max = Number(slider.max || 100);
+  const pct = ((Number(slider.value) - min) / (max - min)) * 100;
+  slider.style.setProperty('--fill', `${pct}%`);
+}
 
 export function showView(viewId: string): void {
   document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));

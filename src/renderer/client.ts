@@ -1,4 +1,4 @@
-import { api, $, showToast, setStatus } from './utils';
+import { api, $, showToast, setStatus, syncSliderFill } from './utils';
 
 let clientWebSocket: WebSocket | null = null;
 let clientPeerConnection: RTCPeerConnection | null = null;
@@ -379,7 +379,7 @@ function renderLatencyChart(): void {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  const PAD = { top: 8, right: 8, bottom: 22, left: 28 };
+  const PAD = { top: 8, right: 14, bottom: 22, left: 44 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top  - PAD.bottom;
 
@@ -388,19 +388,21 @@ function renderLatencyChart(): void {
   const niceMax = Math.ceil(Math.max(rawMax, 40) / 20) * 20;
   const range = niceMax;
 
-  const isDark   = !document.body.classList.contains('theme-light');
-  const accent   = '#00d4aa';
-  const gridCol  = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
-  const labelCol = isDark ? '#55557a' : '#9999bb';
+  // Colors come from the theme tokens so the chart always matches the UI
+  const css      = getComputedStyle(document.body);
+  const token    = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+  const accent   = token('--chart-line', '#818cf8');
+  const gridCol  = token('--chart-grid', 'rgba(255,255,255,0.07)');
+  const labelCol = token('--chart-label', '#8690a6');
 
   // Chart background
-  ctx.fillStyle = isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)';
+  ctx.fillStyle = token('--chart-bg', 'rgba(0,0,0,0.18)');
   ctx.beginPath();
-  ctx.roundRect(PAD.left, PAD.top, chartW, chartH, 4);
+  ctx.roundRect(PAD.left, PAD.top, chartW, chartH, 6);
   ctx.fill();
 
   // Grid lines + Y labels (5 lines: 0, 25%, 50%, 75%, 100%)
-  ctx.font = '10px Inter, system-ui, sans-serif';
+  ctx.font = '500 10.5px Inter, "Segoe UI", system-ui, sans-serif';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'middle';
   const gridCount = 4;
@@ -409,30 +411,29 @@ function renderLatencyChart(): void {
     const y   = PAD.top + chartH - (chartH * i) / gridCount;
     ctx.strokeStyle = gridCol;
     ctx.lineWidth   = 1;
-    ctx.setLineDash(i === 0 ? [] : [3, 3]);
+    ctx.setLineDash(i === 0 ? [] : [3, 4]);
     ctx.beginPath();
     ctx.moveTo(PAD.left, y);
     ctx.lineTo(PAD.left + chartW, y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = labelCol;
-    ctx.fillText(`${Math.round(val)}`, PAD.left - 5, y);
+    ctx.fillText(i === gridCount ? `${Math.round(val)} ms` : `${Math.round(val)}`, PAD.left - 8, y);
   }
 
-  // X-axis labels (every 10 s)
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'top';
-  const total = latencyHistory.length;
-  for (let i = 0; i < total; i++) {
-    const age = total - 1 - i;
-    if (age % 10 !== 0) continue;
-    const x = PAD.left + (i / (LATENCY_HISTORY_MAX - 1)) * chartW;
-    ctx.fillStyle = labelCol;
-    ctx.fillText(age === 0 ? 'now' : `-${age}s`, x, PAD.top + chartH + 5);
-  }
-
-  const xOf = (i: number) => PAD.left + (i / (LATENCY_HISTORY_MAX - 1)) * chartW;
+  // Newest sample is pinned to the right edge ("now"); history scrolls left
+  const xOf = (i: number) =>
+    PAD.left + ((i + LATENCY_HISTORY_MAX - latencyHistory.length) / (LATENCY_HISTORY_MAX - 1)) * chartW;
   const yOf = (v: number) => PAD.top  + chartH - (v / range) * chartH;
+
+  // X-axis labels: fixed ticks every 10 s
+  ctx.textBaseline = 'top';
+  for (let age = 0; age < LATENCY_HISTORY_MAX; age += 10) {
+    const x = PAD.left + ((LATENCY_HISTORY_MAX - 1 - age) / (LATENCY_HISTORY_MAX - 1)) * chartW;
+    ctx.textAlign = age === 0 ? 'right' : 'center';
+    ctx.fillStyle = labelCol;
+    ctx.fillText(age === 0 ? 'now' : `-${age}s`, age === 0 ? x + 4 : x, PAD.top + chartH + 6);
+  }
 
   // Clip drawing to chart area
   ctx.save();
@@ -442,9 +443,8 @@ function renderLatencyChart(): void {
 
   // Gradient fill under curve
   const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + chartH);
-  grad.addColorStop(0,   'rgba(0,212,170,0.28)');
-  grad.addColorStop(0.7, 'rgba(0,212,170,0.06)');
-  grad.addColorStop(1,   'rgba(0,212,170,0)');
+  grad.addColorStop(0, token('--chart-fill-top', 'rgba(129,140,248,0.32)'));
+  grad.addColorStop(1, token('--chart-fill-bottom', 'rgba(129,140,248,0)'));
 
   ctx.beginPath();
   ctx.moveTo(xOf(0), yOf(latencyHistory[0]));
@@ -466,22 +466,23 @@ function renderLatencyChart(): void {
     ctx.bezierCurveTo(cpx, yOf(latencyHistory[i - 1]), cpx, yOf(latencyHistory[i]), xOf(i), yOf(latencyHistory[i]));
   }
   ctx.strokeStyle = accent;
-  ctx.lineWidth   = 1.5;
+  ctx.lineWidth   = 2;
   ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
   ctx.stroke();
 
   ctx.restore();
 
   // Dot at latest point (drawn outside clip region so it isn't cut)
   const lx = xOf(latencyHistory.length - 1);
-  const ly = Math.max(PAD.top + 3.5, Math.min(PAD.top + chartH - 3.5, yOf(latencyHistory[latencyHistory.length - 1])));
+  const ly = Math.max(PAD.top + 4, Math.min(PAD.top + chartH - 4, yOf(latencyHistory[latencyHistory.length - 1])));
   ctx.beginPath();
-  ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
+  ctx.arc(lx, ly, 4, 0, Math.PI * 2);
   ctx.fillStyle = accent;
-  ctx.shadowColor = accent;
-  ctx.shadowBlur  = 6;
   ctx.fill();
-  ctx.shadowBlur  = 0;
+  ctx.lineWidth   = 2;
+  ctx.strokeStyle = token('--surface', '#1b1b30');
+  ctx.stroke();
 
   // Stats pills
   const avg = Math.round(latencyHistory.reduce((a, b) => a + b, 0) / latencyHistory.length);
@@ -510,7 +511,9 @@ function applyMuteState(muted: boolean): void {
   if (clientGainNode) {
     clientGainNode.gain.value = muted ? 0 : parseInt($<HTMLInputElement>('volume-slider').value, 10) / 100;
   }
-  $('btn-mute').classList.toggle('btn-icon-sm--muted', muted);
+  const muteBtn = $('btn-mute');
+  muteBtn.classList.toggle('btn-icon-sm--muted', muted);
+  muteBtn.setAttribute('aria-pressed', String(muted));
   ($('icon-unmuted') as HTMLElement).style.display = muted ? 'none' : '';
   ($('icon-muted') as HTMLElement).style.display = muted ? '' : 'none';
 }
@@ -523,6 +526,7 @@ export function adjustVolume(delta: number): void {
   const slider = $<HTMLInputElement>('volume-slider');
   const next = Math.max(0, Math.min(300, parseInt(slider.value, 10) + delta));
   slider.value = String(next);
+  syncSliderFill(slider);
   $<HTMLSpanElement>('volume-value').textContent = `${next}%`;
   if (isMuted) applyMuteState(false);
   if (clientGainNode) clientGainNode.gain.value = next / 100;
@@ -565,6 +569,8 @@ export function applyClientTab(tab: 'auto' | 'manual'): void {
   const isAuto = tab === 'auto';
   $('tab-auto-connect').classList.toggle('tab-btn--active', isAuto);
   $('tab-manual-connect').classList.toggle('tab-btn--active', !isAuto);
+  $('tab-auto-connect').setAttribute('aria-pressed', String(isAuto));
+  $('tab-manual-connect').setAttribute('aria-pressed', String(!isAuto));
   $('discovered-servers-card').style.display = isAuto ? 'block' : 'none';
   $('manual-connect-card').style.display     = isAuto ? 'none'  : 'block';
   const title = document.getElementById('connection-card-title');
@@ -597,10 +603,19 @@ $<HTMLInputElement>('pin-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') submitPin();
 });
 
+// Escape route out of the PIN prompt: abandon this connection attempt
+$('btn-cancel-pin').addEventListener('click', disconnectClient);
+
 $('latency-badge').addEventListener('click', openLatencyChart);
 $('btn-close-latency-chart').addEventListener('click', closeLatencyChart);
 $('latency-chart-overlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeLatencyChart();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if ($<HTMLDivElement>('pin-modal-overlay').style.display !== 'none') disconnectClient();
+  else if ($<HTMLDivElement>('latency-chart-overlay').style.display !== 'none') closeLatencyChart();
 });
 
 window.addEventListener('resize', () => {
@@ -616,6 +631,7 @@ window.addEventListener('resize', () => {
   if (settings.volume !== undefined) {
     volumeSlider.value = String(settings.volume);
     volumeValue.textContent = `${settings.volume}%`;
+    syncSliderFill(volumeSlider);
   }
 
   // Pre-set saved device ID so refreshOutputDevices can restore it if still present
