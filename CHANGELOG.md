@@ -7,15 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-20
+
+### Added
+- Cancel button and Esc key for the PIN prompt; Esc also closes the latency chart
+- Visible keyboard focus, screen reader labels for icon buttons, and reduced-motion support
+
 ### Changed
 - Refreshed interface: indigo surfaces and brand gradient taken from the app icon, green primary actions, LED-style level meters and consistent controls across dark and light themes
 - Server and Broadcast screens now fit the default window, with the start/stop button pinned to the bottom
 - Light theme text, badges and buttons now meet WCAG AA contrast
 - Latency history chart keeps "now" at the right edge and follows the active theme
-
-### Added
-- Cancel button and Esc key for the PIN prompt; Esc also closes the latency chart
-- Visible keyboard focus, screen reader labels for icon buttons, and reduced-motion support
 
 ## [0.12.2] - 2026-04-16
 
@@ -49,7 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NSIS-based Windows installer with per-user install support
 - Compact translucent UI with Server, Client, and Broadcast modes
 
-[Unreleased]: https://github.com/NelushaUdaraka/audiolink/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/NelushaUdaraka/audiolink/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/NelushaUdaraka/audiolink/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/NelushaUdaraka/audiolink/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/NelushaUdaraka/audiolink/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/NelushaUdaraka/audiolink/compare/v0.11.3...v0.12.0
