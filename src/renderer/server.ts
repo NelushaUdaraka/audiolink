@@ -24,7 +24,7 @@ export async function refreshDevices(): Promise<void> {
 
   const systemOpt = document.createElement('option');
   systemOpt.value = '__system_audio__';
-  systemOpt.textContent = '🔊 System Audio (Loopback)';
+  systemOpt.textContent = 'System Audio (Loopback)';
   select.appendChild(systemOpt);
 
   try {

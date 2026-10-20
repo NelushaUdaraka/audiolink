@@ -97,3 +97,7 @@ dist/
 # Windows artifacts
 Thumbs.db
 desktop.ini
+
+# Python bytecode (e.g. from .claude/skills scripts)
+__pycache__/
+*.pyc

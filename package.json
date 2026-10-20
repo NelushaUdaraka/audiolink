@@ -1,7 +1,7 @@
 {
   "name": "audiolink",
   "productName": "AudioLink",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "description": "Low-latency audio streaming over your local network",
   "repository": "https://github.com/NelushaUdaraka/audiolink.git",
   "main": "out/main/main.js",
